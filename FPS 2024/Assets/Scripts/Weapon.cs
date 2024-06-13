@@ -1,83 +1,114 @@
 using System.Collections;
-using System.Runtime.CompilerServices;
+using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.UIElements;
 
 public class Weapon : MonoBehaviour
 {
-    [SerializeField] WeaponModel weapon;
-    [SerializeField] Transform firePoint;
+    [SerializeField] WeaponData weaponData;
     [SerializeField] GameObject bulletImpact;
-    [SerializeField] int magazine;
-    [SerializeField] MeshFilter meshFilter;
-    [SerializeField] MeshRenderer meshRenderer;
-    float timeBetweenShoots;
-    bool reload;
+    [SerializeField] Transform firePoint;
 
-    private void Start()
+    MeshFilter meshFilter;
+    MeshRenderer meshRenderer;
+
+    int currentMagazine;
+    int ammo;
+    float timeToShoot;
+    bool reloading;
+
+    // Start is called before the first frame update
+    void Start()
     {
         meshFilter = GetComponentInChildren<MeshFilter>();
         meshRenderer = GetComponentInChildren<MeshRenderer>();
 
-        magazine = weapon.MagazineCap;
-
-        meshFilter.mesh = weapon.Model;
-        meshRenderer.material = weapon.Material;
+        UpdateWeapon(weaponData);
     }
 
-    void fire()
+    private void Update()
     {
-        FireCouroutine();
-    }
-
-    private IEnumerator FireCouroutine()
-    {
-        if (magazine > 0 && weapon.FireRate > 0 )
+        if(Input.GetKey(KeyCode.Mouse0)) 
         {
-            magazine--;
+            Fire();
         }
-        yield return null;
-        Shoot();
     }
 
-
-    private void Shoot()
+    void Fire()
     {
-        RaycastHit hit;
+        StartCoroutine(FireCoroutine());
+    }
 
-        Vector3 direction = new Vector3(Random.Range(-weapon.Spread, weapon.Spread), Random.Range(-weapon.Spread, weapon.Spread), 0);
-        float range = weapon.Range;
-
-        if (Physics.Raycast(firePoint.position, direction, out hit, range))
+    IEnumerator FireCoroutine()
+    {
+        // Verifica se pode disparar
+        if (Time.time >= timeToShoot && !reloading)
         {
-            Collider obj = hit.transform.GetComponent<Collider>();
-            if (obj != null)
+            // Define o tempo para o próximo disparo
+            timeToShoot = Time.time + 1 / weaponData.FireRate;
+
+            // Dispara projéteis com o tempo entre cada disparo
+            for (int i = 0; i < weaponData.BulletsForShoot; i++)
             {
-                Debug.Log(obj.gameObject.name);
-                Instantiate(bulletImpact, hit.point, Quaternion.LookRotation(hit.normal));
+                if (currentMagazine > 0)
+                {
+                    // Reduz a munição do carregador
+                    currentMagazine--;
+                    Shoot();
+                    yield return new WaitForSeconds(weaponData.TimeBetweenShoots);
+                }
             }
         }
+    }
 
-        Debug.DrawLine(firePoint.position, firePoint.position + direction * range);
+    void Shoot()
+    {
+        // Variável para armazenar o que foi atingido
+        RaycastHit hit;
+        // Direção do disparo, considerando a dispersão da arma
+        Vector3 direction = firePoint.forward + new Vector3(Random.Range(-weaponData.Spread, weaponData.Spread), Random.Range(-weaponData.Spread, weaponData.Spread), 0);
+        // Verifica se acertou algo na direção do disparo dentro do alcance
+        if(Physics.Raycast(firePoint.position, direction, out hit, weaponData.Range)) 
+        {
+            Instantiate(bulletImpact, hit.point, Quaternion.identity);
+            // Desenha uma linha para visualizar o trajeto do projétil
+            Debug.DrawLine(firePoint.position, direction * weaponData.Range);
+        }
     }
 
     void Reload()
     {
-        ReloadCoroutine();
+        StartCoroutine(ReloadCoroutine());
     }
 
     private IEnumerator ReloadCoroutine()
     {
         // Verifica se precisa recarregar e se há munição disponível
-        if(magazine != weapon.MagazineCap)
+        if(currentMagazine < weaponData.MagazineCap && ammo > 0)
         {
-            reload = true;
+            // Atualiza a munição no carregador e no inventário
+            if (currentMagazine + ammo >= weaponData.MagazineCap)
+            {
+                ammo -= weaponData.MagazineCap - currentMagazine;
+                currentMagazine = weaponData.MagazineCap;
+            }
+            else
+            {
+                currentMagazine += ammo;
+                ammo = 0;
+            }
+            // Aguarda o tempo de recarga
+            reloading = true;
+            yield return new WaitForSeconds(weaponData.ReloadTime);
+            reloading = false;
         }
-
-        // Atualiza a munição no carregador e no inventário
-
-        // Aguarda o tempo de recarga
-        yield return null;
     }
 
+    void UpdateWeapon(WeaponData newWeapon)
+    {
+        weaponData = newWeapon;
+        meshFilter.mesh = weaponData.Model;
+        meshRenderer.material = weaponData.Material;
+
+        currentMagazine = weaponData.MagazineCap;
+    }
 }
