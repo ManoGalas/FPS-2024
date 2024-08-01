@@ -1,9 +1,8 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using Photon.Pun;
 
-public class PlayerController : MonoBehaviourPun
+public class PlayerController : MonoBehaviour
 {
     const float speed = 5;
     const float throwForceForward = 10, throwForceUp = 5;
@@ -25,8 +24,6 @@ public class PlayerController : MonoBehaviourPun
     [SerializeField, Range(0f, 500f)]
     float mouseSensitivity;
 
-    bool controllerOn = true;
-
     private void Awake()
     {
         Cursor.lockState = CursorLockMode.Locked;
@@ -35,21 +32,9 @@ public class PlayerController : MonoBehaviourPun
         playerGravity = GetComponent<PlayerGravity>();
     }
 
-    [PunRPC]
-    private void Initialize()
-    {
-        if(!photonView.IsMine)
-        {
-            GetComponentInChildren<Camera>().enabled = false;
-            controllerOn = false;
-        }
-    }
-
     // Update is called once per frame
     void Update()
     {
-        if(controllerOn) 
-        { 
         direction.x = Input.GetAxis("Horizontal");
         direction.z = Input.GetAxis("Vertical");
         camDirection.x = Input.GetAxis("Mouse X");
@@ -83,7 +68,6 @@ public class PlayerController : MonoBehaviourPun
         Movement();
         Rotation();
         //Fire();
-        }
     }
 
     void Movement()
